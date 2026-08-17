@@ -1,14 +1,11 @@
 # Terraform with the state already in place, keyed by list position.
-FROM python:3.12-slim
+FROM ghcr.io/jvanbuel/hmdyb-task-base:1
 
 ARG TERRAFORM_VERSION=1.11.4
-RUN apt-get update && apt-get install -y --no-install-recommends \
-      curl unzip ca-certificates git jq \
-    && curl -fsSLo /tmp/tf.zip \
+RUN curl -fsSLo /tmp/tf.zip \
        "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_arm64.zip" \
     && unzip -q /tmp/tf.zip -d /usr/local/bin \
-    && rm /tmp/tf.zip \
-    && rm -rf /var/lib/apt/lists/*
+    && rm /tmp/tf.zip
 
 WORKDIR /app
 COPY main.tf /app/main.tf
@@ -33,31 +30,3 @@ baseline = {
 pathlib.Path("/app/baseline.json").write_text(json.dumps(baseline, indent=2))
 print("baseline:", sorted(baseline))
 PY
-
-# Pre-install the harnesses. Harbor installs them on every rollout regardless;
-# finding them already present turns that into a version check rather than a
-# download. Versions track harbor.agents.installed.node_install -- see
-# tasks/AGENTS.md.
-ENV NVM_DIR=/root/.nvm
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl ca-certificates git \
-    && rm -rf /var/lib/apt/lists/* \
-    && curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.2/install.sh | bash \
-    && . "$NVM_DIR/nvm.sh" \
-    && nvm install 22 \
-    && npm i -g opencode-ai@latest @openai/codex @mariozechner/pi-coding-agent \
-    && npm cache clean --force
-
-# uv, and the interpreter and tools the pip-installed harnesses want. swe-agent
-# re-clones its own repo every run, so pre-cloning is pointless -- but it checks
-# for uv before fetching it, and `uv python install 3.12` and a warm uv cache are
-# the downloads worth removing. aider's installer is uv-based, so a pre-installed
-# aider-chat resolves from cache instead of the network.
-COPY --from=ghcr.io/astral-sh/uv:0.9.7 /uv /uvx /usr/local/bin/
-ENV UV_LINK_MODE=copy
-# uv tool installs land here; harbor's aider adapter sources this itself, but a
-# harness that just calls `aider` should find it too.
-ENV PATH="/root/.local/bin:$PATH"
-RUN uv python install 3.12 \
-    && uv tool install aider-chat \
-    && uv cache prune --ci || true
