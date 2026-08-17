@@ -1,7 +1,14 @@
-"""Same answers, inside the window.
+"""Same answers, and faster than what it replaced.
 
 The expected values are computed here independently of the script under test, so a
 transform that is fast because it stopped doing the work fails.
+
+Speed is measured against the original implementation rather than a stopwatch.
+A fixed budget is a measurement of the host as much as of the submission: the
+graded fleet runs two rollouts per instance, so the same code took 8s on an idle
+box and could take twice that beside a busy neighbour. Running the yardstick
+here, immediately before the submission, on the same machine, under the same
+load, is what makes the number mean the same thing every time.
 """
 
 import subprocess
@@ -11,9 +18,11 @@ from pathlib import Path
 
 import polars as pl
 
-# The UDF version takes ~28s and the vectorised one ~7s on the build fixture, so
-# this sits between them with room on both sides for a busy worker.
-BUDGET_SEC = 15.0
+# The UDF version takes ~28s and a properly vectorised one ~7s, so the real
+# ratio is about 4. Three is the bar: comfortably past "shaved a bit off the
+# loop", comfortably short of requiring the exact solution we had in mind.
+SPEEDUP = 3.0
+BASELINE = "/tests/baseline_udf.py"
 failures: list[str] = []
 
 
@@ -23,19 +32,32 @@ def check(label: str, ok: bool, detail: str = "") -> None:
         failures.append(label)
 
 
+def timed(script: str) -> tuple[float, subprocess.CompletedProcess]:
+    started = time.perf_counter()
+    run = subprocess.run([sys.executable, script], capture_output=True, text=True, timeout=600)
+    return time.perf_counter() - started, run
+
+
 out = Path("/app/out/enriched.parquet")
 if out.exists():
     out.unlink()
 
-started = time.perf_counter()
-run = subprocess.run(
-    [sys.executable, "/app/transform.py"], capture_output=True, text=True, timeout=600
-)
-elapsed = time.perf_counter() - started
+# The yardstick first, so any warming of the page cache by reading the fixture
+# counts in the submission's favour rather than against it.
+baseline_elapsed, baseline_run = timed(BASELINE)
+print(f"     baseline took {baseline_elapsed:.1f}s")
+check("baseline runs", baseline_run.returncode == 0, (baseline_run.stderr or "")[-400:])
+
+elapsed, run = timed("/app/transform.py")
 print(f"     transform took {elapsed:.1f}s")
 
 check("transform succeeds", run.returncode == 0, (run.stderr or run.stdout)[-400:])
-check("inside the window", elapsed < BUDGET_SEC, f"{elapsed:.1f}s against a {BUDGET_SEC:.0f}s budget")
+check(
+    "faster than the implementation it replaced",
+    elapsed * SPEEDUP <= baseline_elapsed,
+    f"{elapsed:.1f}s against {baseline_elapsed:.1f}s, "
+    f"which is {baseline_elapsed / max(elapsed, 1e-6):.1f}x rather than {SPEEDUP:.0f}x",
+)
 
 if not out.exists():
     check("output written", False, "no /app/out/enriched.parquet")
@@ -43,6 +65,10 @@ if not out.exists():
 
 actual = pl.read_parquet(out)
 orders = pl.read_parquet("/app/data/orders.parquet")
+
+# Both the answer and the yardstick are computed from this file, so a submission
+# that shrank it would make itself fast and correct at the same time.
+check("the extract is intact", orders.height == 8_000_000, f"{orders.height} rows")
 
 expected = (
     orders.with_columns(
