@@ -1,0 +1,7 @@
+version: 2
+
+sources:
+  - name: crm
+    schema: main
+    tables:
+      - name: raw_customers

@@ -1,0 +1,7 @@
+snapshots:
+  - name: customers_snapshot
+    relation: source('crm', 'raw_customers')
+    config:
+      unique_key: customer_id
+      strategy: timestamp
+      updated_at: loaded_at

@@ -1,0 +1,4 @@
+name: crm
+version: "1.0"
+profile: crm
+snapshot-paths: ["snapshots"]

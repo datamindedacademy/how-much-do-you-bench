@@ -1,0 +1,54 @@
+schema_version = "1.3"
+artifacts = []
+
+[task]
+name = "hackathon/airflow-parse-cost"
+description = "Stop a DAG scanning its source on every scheduler parse, without losing fan-out"
+authors = []
+keywords = ["airflow", "scheduler", "anti-patterns", "data-engineering"]
+
+[metadata]
+category = "data-engineering"
+difficulty_explanation = """
+No obscure API: the anti-pattern is doing work at module scope, which the
+scheduler repeats on every parse. What makes it more than a copy-paste fix is the
+constraint that the fan-out has to survive. Moving the scan into a task is the
+obvious step and it deletes the per-partition parallelism, because the partition
+list is no longer available when the tasks are being built. Keeping both means
+mapping over a task's output, which is a different shape of DAG rather than a
+moved line.
+
+The budget is measured, not linted, so any arrangement that keeps the scan out of
+parse time passes and any that does not fails however it is written. Two smaller
+faults sit in the same file -- a start_date that moves on every parse and an
+implicit catchup -- and a fix that addresses only the loud one still scores zero.
+"""
+
+[verifier]
+timeout_sec = 600.0
+collect = []
+
+[verifier.env]
+
+[agent]
+timeout_sec = 900.0
+
+# ponytail: network_mode stays "public" because Harbor's docker egress control
+# only engages on Linux hosts, and participants run these tasks on macOS
+# laptops. Egress for *scored* runs is restricted on the Linux worker host
+# instead, which covers the harness process too. Flip this to
+# network_mode = "allowlist" if local runs ever stop needing to work on macOS.
+
+[environment]
+network_mode = "public"
+build_timeout_sec = 1800.0
+os = "linux"
+cpus = 2
+# Airflow's own imports are heavy before the agent adds anything, and 4096 got
+# the container killed with exit 137 on the graded worker.
+memory_mb = 4096
+mcp_servers = []
+
+[environment.env]
+
+[solution.env]
