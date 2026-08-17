@@ -1,0 +1,50 @@
+schema_version = "1.3"
+artifacts = []
+
+[task]
+name = "hackathon/terraform-rekey"
+description = "Rekey terraform resources by name without destroying them, and release one"
+authors = []
+keywords = ["terraform", "state", "migration", "infrastructure"]
+
+[metadata]
+category = "data-engineering"
+difficulty_explanation = """
+Three requirements that each rule out the obvious answer to the others. Keying by
+name is for_each, which by itself destroys and recreates everything -- so the
+migration needs moved blocks, one per list position. Dropping legacy from the
+config deletes its file, so releasing it needs a removed block with
+lifecycle.destroy = false, which is obscure enough to be looked up rather than
+recalled. And the check is not "does the end state look right": file mtimes are
+recorded before the agent starts, so a destroy-and-recreate that lands on
+identical content still fails.
+"""
+
+[verifier]
+timeout_sec = 600.0
+collect = []
+
+[verifier.env]
+
+[agent]
+timeout_sec = 900.0
+
+# ponytail: network_mode stays "public" because Harbor's docker egress control
+# only engages on Linux hosts, and participants run these tasks on macOS
+# laptops. Egress for *scored* runs is restricted on the Linux worker host
+# instead, which covers the harness process too. Flip this to
+# network_mode = "allowlist" if local runs ever stop needing to work on macOS.
+
+[environment]
+network_mode = "public"
+build_timeout_sec = 1800.0
+os = "linux"
+cpus = 2
+# Airflow's own imports are heavy before the agent adds anything, and 4096 got
+# the container killed with exit 137 on the graded worker.
+memory_mb = 4096
+mcp_servers = []
+
+[environment.env]
+
+[solution.env]
