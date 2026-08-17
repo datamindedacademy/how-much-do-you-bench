@@ -1,0 +1,53 @@
+schema_version = "1.3"
+artifacts = []
+
+[task]
+name = "hackathon/pyspark-fanout"
+description = "Stop a slowly-changing dimension inflating a revenue report through join fan-out"
+authors = []
+keywords = ["pyspark", "joins", "scd", "data-engineering"]
+
+[metadata]
+category = "data-engineering"
+difficulty_explanation = """
+The join looks unremarkable and the code has no bug in the usual sense: it joins
+on the key both tables share. The fault is in the data model -- the dimension
+holds one row per version, so every event belonging to a restated customer is
+counted once per version. Finding it means reconciling the report against the
+events rather than reading the job, and fixing it means reducing the dimension to
+one row per customer before the join, which is a window function rather than a
+distinct.
+
+Reconciling totals is necessary but not sufficient: an older version of a customer
+can win the join and leave the totals right while the segments are wrong, so the
+verifier checks attribution per group as well.
+"""
+
+[verifier]
+timeout_sec = 600.0
+collect = []
+
+[verifier.env]
+
+[agent]
+timeout_sec = 900.0
+
+# ponytail: network_mode stays "public" because Harbor's docker egress control
+# only engages on Linux hosts, and participants run these tasks on macOS
+# laptops. Egress for *scored* runs is restricted on the Linux worker host
+# instead, which covers the harness process too. Flip this to
+# network_mode = "allowlist" if local runs ever stop needing to work on macOS.
+
+[environment]
+network_mode = "public"
+build_timeout_sec = 1800.0
+os = "linux"
+cpus = 2
+# Airflow's own imports are heavy before the agent adds anything, and 4096 got
+# the container killed with exit 137 on the graded worker.
+memory_mb = 6144
+mcp_servers = []
+
+[environment.env]
+
+[solution.env]
