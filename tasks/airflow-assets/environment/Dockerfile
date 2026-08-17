@@ -20,6 +20,28 @@ RUN rm -f /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources \
     && apt-get install -y --no-install-recommends curl ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
+# Pre-install the harnesses. Harbor installs them on every rollout regardless;
+# finding them already present turns that into a version check rather than a
+# download. Versions track harbor.agents.installed.node_install -- see
+# tasks/AGENTS.md.
+ENV NVM_DIR=/root/.nvm
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl ca-certificates git \
+    && rm -rf /var/lib/apt/lists/* \
+    && curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.2/install.sh | bash \
+    && . "$NVM_DIR/nvm.sh" \
+    && nvm install 22 \
+    && npm i -g opencode-ai@latest @anthropic-ai/claude-code @openai/codex \
+         @google/gemini-cli @qwen-code/qwen-code \
+    && npm cache clean --force
+
 WORKDIR /app
 COPY dags/ /app/dags/
 RUN mkdir -p /app/warehouse && chmod -R 0777 /app
+
+# The airflow image's entrypoint runs `airflow`, which prints help and exits, so
+# the container stops as soon as it starts and every exec into it is killed --
+# exit 137, which reads like an out-of-memory kill and is not one. The task
+# container only has to stay alive.
+ENTRYPOINT []
+CMD ["sleep", "infinity"]
