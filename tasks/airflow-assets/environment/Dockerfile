@@ -1,4 +1,4 @@
-FROM ghcr.io/jvanbuel/hmdyb-task-base:1
+FROM hmdyb-task-base:1
 
 # Airflow on the shared base rather than FROM apache/airflow. The official image
 # is its own multi-gigabyte tree with a different parent chain, so it shared no

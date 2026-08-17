@@ -1,4 +1,4 @@
-FROM ghcr.io/jvanbuel/hmdyb-task-base:1
+FROM hmdyb-task-base:1
 
 # The exercise is stdlib only: csv, sqlite3, re. pytest is for the grader.
 RUN pip install --no-cache-dir pytest==8.4.1

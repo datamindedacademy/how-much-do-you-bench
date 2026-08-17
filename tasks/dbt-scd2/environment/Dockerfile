@@ -1,4 +1,4 @@
-FROM ghcr.io/jvanbuel/hmdyb-task-base:1
+FROM hmdyb-task-base:1
 
 # dbt 1.9 or later: the deletion handling this task needs did not exist before.
 RUN pip install --no-cache-dir \

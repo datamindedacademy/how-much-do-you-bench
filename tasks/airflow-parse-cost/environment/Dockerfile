@@ -1,4 +1,4 @@
-FROM ghcr.io/jvanbuel/hmdyb-task-base:1
+FROM hmdyb-task-base:1
 
 ARG AIRFLOW_VERSION=3.0.3
 RUN pip install --no-cache-dir "apache-airflow==${AIRFLOW_VERSION}" \

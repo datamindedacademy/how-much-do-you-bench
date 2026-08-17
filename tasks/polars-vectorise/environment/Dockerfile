@@ -1,4 +1,4 @@
-FROM ghcr.io/jvanbuel/hmdyb-task-base:1
+FROM hmdyb-task-base:1
 
 RUN pip install --no-cache-dir polars==1.35.1 numpy==2.3.4 pyarrow==22.0.0
 

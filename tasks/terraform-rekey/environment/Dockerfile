@@ -1,5 +1,5 @@
 # Terraform with the state already in place, keyed by list position.
-FROM ghcr.io/jvanbuel/hmdyb-task-base:1
+FROM hmdyb-task-base:1
 
 ARG TERRAFORM_VERSION=1.11.4
 RUN curl -fsSLo /tmp/tf.zip \

@@ -1,4 +1,4 @@
-FROM ghcr.io/jvanbuel/hmdyb-task-base:1
+FROM hmdyb-task-base:1
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends default-jre-headless \
