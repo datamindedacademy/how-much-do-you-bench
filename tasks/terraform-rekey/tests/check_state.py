@@ -23,7 +23,13 @@ def tf(*args: str) -> subprocess.CompletedProcess:
 # 1. Nothing left to do. -detailed-exitcode returns 2 when a plan has changes,
 #    which is the whole point: a migration that still wants to destroy something
 #    has not been done, however tidy the config looks.
-plan = tf("plan", "-detailed-exitcode", "-input=false", "-no-color")
+#
+#    -refresh=false because drift alone also returns 2: a plan that reports
+#    "0 to add, 0 to change, 0 to destroy" still exits 2 when a managed file was
+#    touched out of band, and a correct migration was failing on that. The files
+#    are evidence for checks 2 and 3, which read them directly and far more
+#    precisely than a refresh does.
+plan = tf("plan", "-detailed-exitcode", "-refresh=false", "-input=false", "-no-color")
 check(
     "plan is clean",
     plan.returncode == 0,
@@ -32,7 +38,7 @@ check(
 
 # 2. The files are the evidence. A destroy-and-recreate leaves the content
 #    identical and the mtime different, so mtime is what gets checked.
-baseline = json.loads(pathlib.Path("/app/baseline.json").read_text())
+baseline = json.loads(pathlib.Path("/opt/baseline.json").read_text())
 for name, want in sorted(baseline.items()):
     p = pathlib.Path("/app/envs") / name
     if not p.exists():

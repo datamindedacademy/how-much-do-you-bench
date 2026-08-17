@@ -15,6 +15,9 @@ RUN terraform providers mirror /providers >/dev/null \
     && printf 'provider_installation {\n  filesystem_mirror {\n    path    = "/providers"\n    include = ["registry.terraform.io/*/*"]\n  }\n  direct {\n    exclude = ["registry.terraform.io/*/*"]\n  }\n}\n' > /root/.terraformrc
 
 # The state the task starts from: four environments, indexed by position.
+# The baseline lands in /opt, not /app: it is the verifier's evidence, and an
+# agent tidying its workspace has every reason to delete a stray baseline.json
+# and no way to know it is being graded on it.
 RUN mkdir -p /app/envs \
     && terraform init -input=false >/dev/null \
     && terraform apply -auto-approve -input=false >/dev/null \
@@ -27,6 +30,6 @@ baseline = {
     p.name: {"content": p.read_text(), "mtime": int(p.stat().st_mtime)}
     for p in sorted(envs.glob("*.txt"))
 }
-pathlib.Path("/app/baseline.json").write_text(json.dumps(baseline, indent=2))
+pathlib.Path("/opt/baseline.json").write_text(json.dumps(baseline, indent=2))
 print("baseline:", sorted(baseline))
 PY
