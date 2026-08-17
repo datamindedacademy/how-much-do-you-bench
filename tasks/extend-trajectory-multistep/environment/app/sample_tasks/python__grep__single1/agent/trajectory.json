@@ -1,0 +1,15 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "sess-grep",
+  "agent": "opencode",
+  "steps": [
+    {"step_id": 1, "source": "user", "message": "# Instructions\n\nImplement a simplified grep ..."},
+    {"step_id": 2, "source": "agent", "message": "(tool use)",
+     "tool_calls": [{"tool_call_id": "g1", "function_name": "read", "arguments": {"filePath": "/app/grep.py"}}],
+     "metrics": {"prompt_tokens": 6000, "completion_tokens": 90}},
+    {"step_id": 3, "source": "agent", "message": "(tool use)",
+     "tool_calls": [{"tool_call_id": "g2", "function_name": "edit", "arguments": {"filePath": "/app/grep.py", "oldString": "pass", "newString": "..."}}],
+     "metrics": {"prompt_tokens": 7200, "completion_tokens": 700}}
+  ],
+  "final_metrics": {"total_steps": 3}
+}

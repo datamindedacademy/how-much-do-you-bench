@@ -1,0 +1,11 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.8, pytest-8.1.1, pluggy-1.4.0
+collected 5 items
+
+alpha_test.py::AlphaTest::test_case_00 PASSED  [ 20%]
+alpha_test.py::AlphaTest::test_case_01 PASSED  [ 40%]
+alpha_test.py::AlphaTest::test_case_02 PASSED  [ 60%]
+alpha_test.py::AlphaTest::test_case_03 PASSED  [ 80%]
+alpha_test.py::AlphaTest::test_case_04 PASSED  [100%]
+
+============================== 5 passed in 0.03s ==============================

@@ -1,0 +1,15 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.8, pytest-8.1.1, pluggy-1.4.0
+collected 3 items
+
+bowling_test.py::BowlingTest::test_all_gutter_balls PASSED               [ 33%]
+bowling_test.py::BowlingTest::test_a_strike_earns_bonus FAILED           [ 66%]
+bowling_test.py::BowlingTest::test_consecutive_strikes ERROR             [100%]
+
+=================================== FAILURES ===================================
+__________________ BowlingTest.test_a_strike_earns_bonus ______________________
+E       IndexError: list index out of range
+=========================== short test summary info ============================
+FAILED bowling_test.py::BowlingTest::test_a_strike_earns_bonus - IndexError: list index out of range
+ERROR bowling_test.py::BowlingTest::test_consecutive_strikes - IndexError: list index out of range
+======================== 1 failed, 1 passed, 1 error in 0.04s ==================

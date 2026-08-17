@@ -1,0 +1,48 @@
+schema_version = "1.3"
+artifacts = []
+
+[task]
+name = "hackathon/git-secret-history"
+description = "Remove a committed credential from git history while keeping the work"
+authors = []
+keywords = ["git", "history", "security"]
+
+[metadata]
+category = "data-engineering"
+difficulty_explanation = """
+A credential committed early, deleted five commits later, and still sitting in
+every object of the repository.
+
+Deleting the file, amending, or squashing all leave the blob reachable, and the
+verifier reads every object rather than the tip of main. The rewrite itself is only
+half of it: without expiring the reflog and pruning, the old commits stay
+recoverable. The work layered on top has to survive intact, so a fresh
+`git init` scores zero.
+"""
+
+[verifier]
+timeout_sec = 600.0
+collect = []
+
+[verifier.env]
+
+[agent]
+timeout_sec = 900.0
+
+# ponytail: network_mode stays "public" because Harbor's docker egress control
+# only engages on Linux hosts, and participants run these tasks on macOS
+# laptops. Egress for *scored* runs is restricted on the Linux worker host
+# instead, which covers the harness process too. Flip this to
+# network_mode = "allowlist" if local runs ever stop needing to work on macOS.
+
+[environment]
+network_mode = "public"
+build_timeout_sec = 1800.0
+os = "linux"
+cpus = 2
+memory_mb = 4096
+mcp_servers = []
+
+[environment.env]
+
+[solution.env]

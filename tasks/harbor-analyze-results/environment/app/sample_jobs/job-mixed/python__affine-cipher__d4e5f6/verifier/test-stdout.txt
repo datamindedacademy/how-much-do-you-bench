@@ -1,0 +1,9 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.8, pytest-8.1.1, pluggy-1.4.0
+collected 3 items
+
+affine_cipher_test.py::AffineCipherTest::test_encode_yes PASSED          [ 33%]
+affine_cipher_test.py::AffineCipherTest::test_encode_no PASSED           [ 66%]
+affine_cipher_test.py::AffineCipherTest::test_decode_exercism PASSED     [100%]
+
+============================== 3 passed in 0.02s ===============================

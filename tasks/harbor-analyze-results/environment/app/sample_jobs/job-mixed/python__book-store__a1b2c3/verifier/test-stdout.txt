@@ -1,0 +1,18 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.8, pytest-8.1.1, pluggy-1.4.0
+collected 3 items
+
+book_store_test.py::BookStoreTest::test_only_a_single_book PASSED         [ 33%]
+book_store_test.py::BookStoreTest::test_two_of_the_same_book PASSED       [ 66%]
+book_store_test.py::BookStoreTest::test_two_different_books FAILED        [100%]
+
+=================================== FAILURES ===================================
+___________________ BookStoreTest.test_two_different_books _____________________
+    def test_two_different_books(self):
+>       self.assertEqual(total([1, 2]), 1520)
+E       AssertionError: 1600 != 1520
+
+book_store_test.py:21: AssertionError
+=========================== short test summary info ============================
+FAILED book_store_test.py::BookStoreTest::test_two_different_books - AssertionError: 1600 != 1520
+========================= 1 failed, 2 passed in 0.03s ==========================

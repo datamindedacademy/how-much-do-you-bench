@@ -1,0 +1,18 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "sess-connect-1",
+  "agent": "opencode",
+  "steps": [
+    {"step_id": 1, "source": "user", "message": "# Instructions\n\nCompute the result for a game of Hex / Polygon ..."},
+    {"step_id": 2, "source": "agent", "message": "(tool use)",
+     "tool_calls": [{"tool_call_id": "c1", "function_name": "read", "arguments": {"filePath": "/app/connect.py"}}],
+     "metrics": {"prompt_tokens": 7915, "completion_tokens": 155}},
+    {"step_id": 3, "source": "agent", "message": "(tool use)",
+     "tool_calls": [{"tool_call_id": "c2", "function_name": "edit", "arguments": {"filePath": "/app/connect.py", "oldString": "pass", "newString": "..."}}],
+     "metrics": {"prompt_tokens": 9413, "completion_tokens": 514}},
+    {"step_id": 4, "source": "agent", "message": "(tool use)",
+     "tool_calls": [{"tool_call_id": "c3", "function_name": "bash", "arguments": {"command": "python -m pytest"}}],
+     "metrics": {"prompt_tokens": 10000, "completion_tokens": 80}}
+  ],
+  "final_metrics": {"total_steps": 4}
+}

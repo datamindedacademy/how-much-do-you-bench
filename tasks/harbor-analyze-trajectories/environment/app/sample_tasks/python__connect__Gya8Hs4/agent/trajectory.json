@@ -1,0 +1,21 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "sess-connect",
+  "agent": "opencode",
+  "steps": [
+    {"step_id": 1, "source": "user", "message": "# Instructions\n\nCompute the result for a game of Hex / Polygon ..."},
+    {"step_id": 2, "source": "agent", "message": "(tool use)",
+     "tool_calls": [{"tool_call_id": "c1", "function_name": "read", "arguments": {"filePath": "/app/connect.py"}}],
+     "metrics": {"prompt_tokens": 7915, "completion_tokens": 155}},
+    {"step_id": 3, "source": "agent", "message": "(tool use)",
+     "tool_calls": [{"tool_call_id": "c2", "function_name": "skill", "arguments": {"name": "polyglot"}}],
+     "metrics": {"prompt_tokens": 8050, "completion_tokens": 60}},
+    {"step_id": 4, "source": "agent", "message": "(tool use)",
+     "tool_calls": [{"tool_call_id": "c3", "function_name": "edit", "arguments": {"filePath": "/app/connect.py", "oldString": "pass", "newString": "..."}}],
+     "metrics": {"prompt_tokens": 9413, "completion_tokens": 514}},
+    {"step_id": 5, "source": "agent", "message": "(tool use)",
+     "tool_calls": [{"tool_call_id": "c4", "function_name": "bash", "arguments": {"command": "python -m pytest"}}],
+     "metrics": {"prompt_tokens": 10000, "completion_tokens": 80}}
+  ],
+  "final_metrics": {"total_prompt_tokens": 35378, "total_completion_tokens": 809, "total_steps": 5}
+}

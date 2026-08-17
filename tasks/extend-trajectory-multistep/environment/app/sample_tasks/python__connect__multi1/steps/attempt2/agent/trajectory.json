@@ -1,0 +1,18 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "sess-connect-2",
+  "agent": "opencode",
+  "steps": [
+    {"step_id": 1, "source": "user", "message": "# Instructions\n\nYour previous attempt failed. Fix it ..."},
+    {"step_id": 2, "source": "agent", "message": "(tool use)",
+     "tool_calls": [{"tool_call_id": "c4", "function_name": "read", "arguments": {"filePath": "/app/TEST_FAILURES.txt"}}],
+     "metrics": {"prompt_tokens": 8100, "completion_tokens": 120}},
+    {"step_id": 3, "source": "agent", "message": "(tool use)",
+     "tool_calls": [{"tool_call_id": "c5", "function_name": "skill", "arguments": {"name": "polyglot"}}],
+     "metrics": {"prompt_tokens": 8200, "completion_tokens": 60}},
+    {"step_id": 4, "source": "agent", "message": "(tool use)",
+     "tool_calls": [{"tool_call_id": "c6", "function_name": "edit", "arguments": {"filePath": "/app/connect.py", "oldString": "...", "newString": "..."}}],
+     "metrics": {"prompt_tokens": 9000, "completion_tokens": 600}}
+  ],
+  "final_metrics": {"total_steps": 4}
+}
