@@ -1,0 +1,18 @@
+# LiteLLM with the config baked in.
+#
+# The config was originally bind-mounted by docker-compose, which does not
+# exist on ECS, and LiteLLM's S3 config loader swallows its errors and reports
+# only "Unable to load config from given source" — two rounds of guessing at
+# undocumented behaviour with no diagnostics. A COPY is deterministic.
+# Pinned by digest, not by tag. `main-stable` moves: a rebuild during this
+# work pulled a LiteLLM that sends reasoning_effort uninvited, which Bedrock
+# 400s alongside function tools, and every rollout failed. Nothing about the
+# repo changed -- only the base image. Bump this deliberately, never by
+# rebuilding. Resolve a new one with:
+#   docker buildx imagetools inspect ghcr.io/berriai/litellm:main-stable
+FROM ghcr.io/berriai/litellm@sha256:154e23bb5f31b1f10e16392a8ef299bd2cde08de3a64a6849002cfcc25ce3c63
+
+COPY ops/gateway/config.yaml /app/config.yaml
+# The callback in config.yaml is imported by module name, so it has to sit
+# beside the config on the path LiteLLM runs from.
+COPY ops/gateway/hooks.py /app/hooks.py

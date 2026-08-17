@@ -1,0 +1,42 @@
+# Polls SQS and runs rollouts through Harbor.
+#
+# Harbor builds and runs the task container, so this needs a Docker daemon. It
+# talks to the host's daemon over the mounted socket and starts sibling
+# containers rather than nesting: the alternative, docker-in-docker, buys
+# nothing here and costs a privileged container.
+FROM python:3.12-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      git curl ca-certificates gnupg \
+    && install -m 0755 -d /etc/apt/keyrings \
+    && curl -fsSL https://download.docker.com/linux/debian/gpg \
+       -o /etc/apt/keyrings/docker.asc \
+    && chmod a+r /etc/apt/keyrings/docker.asc \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] \
+       https://download.docker.com/linux/debian $(. /etc/os-release && echo $VERSION_CODENAME) stable" \
+       > /etc/apt/sources.list.d/docker.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends docker-ce-cli docker-compose-plugin \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN pip install --no-cache-dir \
+      harbor==0.20.0 \
+      boto3==1.40.47 \
+      requests==2.32.5
+
+COPY --from=ghcr.io/astral-sh/uv:0.9.7 /uv /uvx /usr/local/bin/
+
+WORKDIR /app
+# Only the consumer and the shared contract: no frontend, no API.
+COPY ops/platform/common/ /app/common/
+COPY ops/platform/worker/ /app/worker/
+COPY ops/harness/ /app/harness/
+COPY tasks/ /app/tasks/
+
+# harbor resolves the submission adapter by import path, so the repo root has
+# to be importable.
+ENV PYTHONPATH=/app
+ENV TASKS_DIR=/app/tasks
+ENV JOBS_DIR=/app/jobs
+
+CMD ["python", "-m", "worker.main"]

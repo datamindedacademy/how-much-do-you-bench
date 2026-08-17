@@ -1,0 +1,181 @@
+set dotenv-load := true
+# Recipes run from the repo root, not from ops/: the paths they touch (tasks,
+# images, the frontend build output) span both halves of the tree.
+set working-directory := ".."
+
+aws_profile := env_var_or_default("AWS_PROFILE", "playground")
+aws_region := env_var_or_default("BENCHMARK_REGION", "eu-central-1")
+api_url := env_var_or_default("API_URL", "https://bench.playground.dataminded.cloud")
+# Practice budget per team, in dollars. A full graded suite costs cents, so
+# this is generous for iteration and still bounds a leaked key.
+team_budget := env_var_or_default("TEAM_BUDGET", "5")
+rate_limit_rpm := env_var_or_default("RATE_LIMIT_RPM", "60")
+
+
+# Terraform creates the parameter with a placeholder it then ignores, so a
+# fresh deploy comes up with the literal string "placeholder-set-out-of-band"
+# as its master key and the first team-keys call fails with no hint why. Run
+# this once after the first apply.
+#
+# The value goes to SSM for the deployed gateway and to .env for the local one;
+# the two must match or a key minted against one is rejected by the other.
+#
+# Generate the gateway's master key. Prints nothing.
+master-key:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    KEY="sk-$(openssl rand -hex 20)"
+    AWS_PROFILE={{aws_profile}} aws ssm put-parameter --region {{aws_region}} \
+      --name /de-benchmark/litellm-master-key --type SecureString \
+      --value "$KEY" --overwrite >/dev/null
+    touch .env
+    grep -v '^LITELLM_MASTER_KEY=' .env > .env.tmp || true
+    printf 'LITELLM_MASTER_KEY=%s\n' "$KEY" >> .env.tmp
+    mv .env.tmp .env
+    echo "master key written to SSM and .env"
+    echo "rolling the gateway so it picks it up..."
+    AWS_PROFILE={{aws_profile}} aws ecs update-service --region {{aws_region}} \
+      --cluster de-benchmark --service gateway --force-new-deployment >/dev/null
+    echo "done. existing virtual keys are invalidated; re-run just team-keys."
+
+# A team key can call /v1 and nothing else: LiteLLM refuses admin routes for a
+# virtual key, and the listener only forwards /v1 anyway. The budget is the
+# blast radius if a key leaks, and rpm keeps one runaway practice loop from
+# starving the graded queue.
+#
+# Minting runs on the worker, because /key/generate is deliberately unreachable
+# from outside -- including for us.
+#
+# One inference key per team, printed once. Hand these out at kickoff.
+team-keys +TEAMS:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    IID=$(AWS_PROFILE={{aws_profile}} aws ec2 describe-instances --region {{aws_region}} \
+      --filters "Name=tag:aws:autoscaling:groupName,Values=de-benchmark-worker" \
+                "Name=instance-state-name,Values=running" \
+      --query 'Reservations[0].Instances[0].InstanceId' --output text)
+    [ "$IID" != "None" ] || { echo "no running worker to mint through"; exit 1; }
+
+    SCRIPT=$(cat <<SH | base64
+    set -eu
+    M=\$(aws ssm get-parameter --name /de-benchmark/litellm-master-key --with-decryption \
+      --region {{aws_region}} --query Parameter.Value --output text)
+    for t in {{TEAMS}}; do
+      curl -fsS -X POST http://gateway.de-benchmark.internal:4000/key/generate \
+        -H "Authorization: Bearer \$M" -H 'content-type: application/json' \
+        -d "{\"key_alias\":\"team-\$t\",\"models\":[\"gemma\"],\"rpm_limit\":{{rate_limit_rpm}},\"max_budget\":{{team_budget}}}" \
+        | python3 -c "import json,sys;print('\$t', json.load(sys.stdin)['key'])"
+    done
+    SH
+    )
+    CMD=$(AWS_PROFILE={{aws_profile}} aws ssm send-command --region {{aws_region}} \
+      --instance-ids "$IID" --document-name AWS-RunShellScript \
+      --parameters "commands=[\"echo $SCRIPT | base64 -d | sh\"]" \
+      --query 'Command.CommandId' --output text)
+    for _ in $(seq 1 20); do
+      sleep 3
+      STATE=$(AWS_PROFILE={{aws_profile}} aws ssm get-command-invocation --region {{aws_region}} \
+        --command-id "$CMD" --instance-id "$IID" --query Status --output text 2>/dev/null || echo Pending)
+      [ "$STATE" = "InProgress" ] || [ "$STATE" = "Pending" ] || break
+    done
+    echo "gateway: $(AWS_PROFILE={{aws_profile}} terraform -chdir=ops/terraform output -raw gateway_url)"
+    AWS_PROFILE={{aws_profile}} aws ssm get-command-invocation --region {{aws_region}} \
+      --command-id "$CMD" --instance-id "$IID" --query StandardOutputContent --output text
+
+# Forward the deployed gateway to localhost, through the worker instance.
+#
+# The gateway has no public address on purpose: its admin API (keys, spend,
+# model config) shares a port with inference. SSM tunnels to it without
+# exposing anything, using the AWS access you already have.
+#
+# Leave this running; point local evals at it with GATEWAY_URL.
+tunnel port="4000":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    IID=$(AWS_PROFILE={{aws_profile}} aws ec2 describe-instances --region {{aws_region}} \
+      --filters "Name=tag:aws:autoscaling:groupName,Values=de-benchmark-worker" \
+                "Name=instance-state-name,Values=running" \
+      --query 'Reservations[0].Instances[0].InstanceId' --output text)
+    [ "$IID" != "None" ] || { echo "no running worker instance to tunnel through"; exit 1; }
+    echo "gateway on http://127.0.0.1:{{port}} via $IID (ctrl-c to stop)"
+    AWS_PROFILE={{aws_profile}} aws ssm start-session --region {{aws_region}} \
+      --target "$IID" \
+      --document-name AWS-StartPortForwardingSessionToRemoteHost \
+      --parameters '{"host":["gateway.de-benchmark.internal"],"portNumber":["4000"],"localPortNumber":["{{port}}"]}'
+
+# LiteLLM (keys, limits, token accounting) + Postgres. Declarative config, so
+# there is nothing to provision afterwards. Signs for Bedrock with your own AWS
+# credentials, so `aws sso login` first; there is no token to mint.
+#
+# A local LiteLLM instead of the deployed one.
+gateway:
+    docker compose --env-file .env -f ops/gateway/docker-compose.yml up -d
+    @echo "waiting for gateway..." && until curl -sf -o /dev/null http://127.0.0.1:4000/health/liveliness; do sleep 3; done
+    @echo "gateway  http://127.0.0.1:4000"
+
+# Build the Svelte dashboard into ops/platform/static.
+build-frontend:
+    pnpm -C ops/frontend install
+    pnpm -C ops/frontend build
+
+# The dashboard with live reload. Proxies /results to the api recipe.
+dev-frontend:
+    pnpm -C ops/frontend dev
+
+# Serve the dashboard and /results against the real table.
+api: build-frontend
+    cd ops/platform && uv run --with fastapi --with uvicorn --with boto3 \
+      uvicorn api.main:app --reload --port 8000
+
+worker:
+    cd ops/platform && uv run --with boto3 --with requests python -m worker.main
+
+# Self-checks for the ranking rules and the dashboard helpers.
+test:
+    PYTHONPATH=ops/platform python3 ops/platform/common/scoring.py
+    node ops/frontend/src/lib/scoring.test.mjs
+
+# --- deployment -------------------------------------------------------------
+
+
+# Build both images and push them to ECR, then roll the services.
+deploy: deploy-images deploy-restart
+
+# Needs the VPN off: the proxy times out the daemon's registry requests, and
+# the symptom is a hang on login rather than an error that says so.
+#
+# Build the three images and push them to ECR.
+deploy-images:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # Derived, not hardcoded: an account id in a public repo is reconnaissance
+    # for nobody's benefit, and this is one call.
+    ACCOUNT="${AWS_ACCOUNT:-$(AWS_PROFILE={{aws_profile}} aws sts get-caller-identity --query Account --output text)}"
+    REG="$ACCOUNT.dkr.ecr.{{aws_region}}.amazonaws.com"
+    AWS_PROFILE={{aws_profile}} aws ecr get-login-password --region {{aws_region}} \
+      | docker login --username AWS --password-stdin "$REG"
+    just ops::build-frontend
+    for img in api worker gateway; do
+      docker build -q -f "ops/deploy/Dockerfile.$img" -t "$REG/de-benchmark-$img:latest" .
+      docker push -q "$REG/de-benchmark-$img:latest"
+      echo "pushed $img"
+    done
+
+# Roll all three services onto the current images.
+deploy-restart:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for svc in api worker; do
+      AWS_PROFILE={{aws_profile}} aws ecs update-service --region {{aws_region}} \
+        --cluster de-benchmark --service $svc --force-new-deployment >/dev/null
+    done
+    echo "api and worker rolling"
+
+# Scale the worker fleet. Concurrency is replicas, not threads.
+deploy-scale n="12":
+    AWS_PROFILE={{aws_profile}} aws ecs update-service --region {{aws_region}} \
+      --cluster de-benchmark --service worker --desired-count {{n}}
+
+# Wipe a rehearsal: results table, both queues, job files on EFS. Asks first.
+reset-dev *ARGS:
+    ops/scripts/reset_dev.sh {{ARGS}}

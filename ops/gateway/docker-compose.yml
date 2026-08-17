@@ -1,0 +1,52 @@
+# The gateway plane: virtual keys, per-key token accounting, rate limits.
+# Trajectories are Harbor's job. `harbor view jobs` reads the local run
+# directory with no infrastructure, which is where teams actually iterate.
+
+services:
+  gateway:
+    image: ghcr.io/berriai/litellm:main-stable
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+      # Local dev behind a TLS-intercepting corporate proxy: containers do not
+      # trust the corporate CA, so outbound HTTPS fails with
+      # CERTIFICATE_VERIFY_FAILED. Point CORP_CA_FILE at a copy of the bundle
+      # somewhere Docker can actually share (/etc is not shared by Rancher
+      # Desktop or Docker Desktop). Harmless on the AWS workers, where there is
+      # no interception.
+      - ${CORP_CA_FILE:-./config.yaml}:/etc/ssl/corp-ca.pem:ro
+      # Your own AWS credentials, so the local gateway signs for Bedrock the
+      # same way the deployed one does with its task role. Read-only, and it
+      # needs the SSO cache, so run `aws sso login` first.
+      - ${HOME}/.aws:/root/.aws:ro
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
+    environment:
+      AWS_PROFILE: ${AWS_PROFILE:-playground}
+      AWS_REGION: ${AWS_REGION:-eu-central-1}
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-sk-local-dev}
+      DATABASE_URL: postgresql://litellm:litellm@db:5432/litellm
+      SSL_CERT_FILE: ${CORP_CA_FILE:+/etc/ssl/corp-ca.pem}
+      REQUESTS_CA_BUNDLE: ${CORP_CA_FILE:+/etc/ssl/corp-ca.pem}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # Virtual keys and their spend are rows in here. Without it LiteLLM answers
+  # /key/generate with "DB not connected".
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: litellm
+      POSTGRES_PASSWORD: litellm
+      POSTGRES_DB: litellm
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U litellm"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  db-data:

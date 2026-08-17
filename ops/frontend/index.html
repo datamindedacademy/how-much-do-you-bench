@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en" data-theme="cerberus">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>🏋️ How much do you bench?</title>
+  </head>
+  <body class="bg-surface-50-950 text-surface-950-50">
+    <div id="app"></div>
+    <script>
+      // Applied before paint so a stored preference never flashes the wrong
+      // theme. The app takes over once it mounts.
+      try {
+        const stored = localStorage.getItem("benchmark-theme");
+        const dark =
+          stored === "dark" ||
+          (stored !== "light" &&
+            window.matchMedia("(prefers-color-scheme: dark)").matches);
+        document.documentElement.classList.toggle("dark", dark);
+      } catch {}
+    </script>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

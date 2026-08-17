@@ -1,0 +1,130 @@
+@import "@fontsource/dm-sans/400.css";
+@import "@fontsource/dm-sans/500.css";
+@import "@fontsource/dm-sans/700.css";
+@import "@fontsource/el-messiri/600.css";
+@import "@fontsource/el-messiri/700.css";
+
+@import "tailwindcss";
+@import "@skeletonlabs/skeleton";
+@import "@skeletonlabs/skeleton/themes/cerberus";
+
+@source "../src/**/*.{html,js,svelte}";
+
+/* Dataminded identity over Skeleton's structure. Fonts are bundled through
+ * @fontsource rather than a CDN, so the dashboard renders correctly on venue
+ * wifi with no outbound requests. */
+@theme {
+  --font-sans: "DM Sans", Arial, sans-serif;
+  --heading-font-family: "El Messiri", Arial, sans-serif;
+  --base-font-family: "DM Sans", Arial, sans-serif;
+
+}
+
+/* Skeleton scopes its palette to [data-theme], which outranks @theme, so the
+ * brand ramps have to be declared at the same specificity or Skeleton's own
+ * blues win silently. */
+[data-theme="cerberus"] {
+  /* Neutral ramp interpolated white -> Light Gray -> Navy #080635, so dark
+   * mode lands on brand navy rather than a generic near-black. */
+  --color-surface-50: #ffffff;
+  --color-surface-100: #f2f2f2;
+  --color-surface-200: #e4e4ea;
+  --color-surface-300: #c9c9d4;
+  --color-surface-400: #9a99ac;
+  --color-surface-500: #6b6a85;
+  --color-surface-600: #4c4b69;
+  --color-surface-700: #33324f;
+  --color-surface-800: #1e1d3e;
+  --color-surface-900: #100e37;
+  --color-surface-950: #080635;
+
+  /* Purple #543EDC as the accent. */
+  --color-primary-50: #eeecfc;
+  --color-primary-100: #e5e6ff;
+  --color-primary-200: #cacdf9;
+  --color-primary-300: #a79cec;
+  --color-primary-400: #7a66e4;
+  --color-primary-500: #543edc;
+  --color-primary-600: #4632b8;
+  --color-primary-700: #36288f;
+  --color-primary-800: #281d6b;
+  --color-primary-900: #1a1347;
+  --color-primary-950: #0d0a24;
+}
+
+/* Skeleton's -50-950 pair utilities compile to CSS light-dark(), which
+ * resolves from the color-scheme property and ignores class names entirely.
+ * The .dark class therefore has to drive color-scheme, or the toggle flips the
+ * hand-written tokens while every Skeleton surface keeps following the OS.
+ * That mismatch is what made light mode unusable on a dark-mode machine. */
+:root {
+  color-scheme: light;
+}
+
+:root.dark {
+  color-scheme: dark;
+}
+
+/* Type scale: fixed rem, ~1.2 ratio, semantic names. Product UI wants spatial
+ * predictability, so no fluid clamp() here. Body sits at 17px because 14px
+ * across a dashboard reads as cramped and misses the 16px floor.
+ *
+ * Ink tokens replace stacked opacity utilities. Measured on both surfaces:
+ * muted 8.3:1 light / 11.8:1 dark, subtle 5.2:1 light / 6.9:1 dark. The old
+ * opacity-55 label approximated surface-400, which is 2.79:1 on white and
+ * fails outright. */
+:root {
+  --text-caption: 0.8125rem;
+  --text-small: 0.9375rem;
+  --text-body: 1.0625rem;
+  --text-subhead: 1.25rem;
+  --text-stat: 2.125rem;
+  --text-title: 2.75rem;
+
+  --leading-tight: 1.15;
+  --leading-body: 1.55;
+
+  --ink: var(--color-surface-950);
+  --ink-muted: var(--color-surface-600);
+  --ink-subtle: var(--color-surface-500);
+}
+
+.dark {
+  --ink: var(--color-surface-50);
+  --ink-muted: var(--color-surface-300);
+  --ink-subtle: var(--color-surface-400);
+}
+
+body {
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
+}
+
+/* El Messiri is the page title only. A blanket h1-h6 rule pulls the display
+ * face into section headers, where product UI wants the body family: labels,
+ * headers and data in one voice. The title opts in explicitly. */
+
+/* Chart colours stay a validated categorical palette rather than brand
+ * decoration: identity has to survive colour-vision deficiency, which the
+ * brand ramp was never checked for. Chrome tracks the card the chart sits on
+ * (surface-100 light, surface-900 dark), because Skeleton's -50-950 pairs are
+ * utility classes, not plain custom properties, and a fixed light token gives
+ * white label halos on a dark background. */
+:root {
+  --series-1: #2a78d6;
+  --dominated: #898781;
+  --chart-surface: var(--color-surface-100);
+  --chart-grid: var(--color-surface-300);
+  --chart-axis: var(--color-surface-400);
+  --chart-label: var(--color-surface-700);
+  --chart-tick: var(--color-surface-600);
+}
+
+.dark {
+  --series-1: #3987e5;
+  --chart-surface: var(--color-surface-900);
+  --chart-grid: var(--color-surface-800);
+  --chart-axis: var(--color-surface-700);
+  --chart-label: var(--color-surface-300);
+  --chart-tick: var(--color-surface-400);
+}

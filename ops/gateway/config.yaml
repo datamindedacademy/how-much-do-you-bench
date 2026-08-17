@@ -1,0 +1,59 @@
+# LiteLLM gateway. Declarative: no provisioning script, unlike the MLflow
+# gateway, whose configuration lives in its database behind a REST API.
+model_list:
+  # Gemma 4 is served only on Bedrock's mantle endpoint. bedrock-runtime does
+  # not serve this model at all: no Converse, no InvokeModel, no Messages.
+  - model_name: gemma
+    litellm_params:
+      # bedrock_mantle signs with SigV4 over the standard AWS credential chain
+      # whenever no api_key is set, so this picks up the ECS task role and there
+      # is no credential to rotate. The alternative was a 12-hour bearer token
+      # that expired overnight and failed every rollout with a 401 buried in a
+      # trace, and a `just deploy-token` to remember before every event.
+      model: bedrock_mantle/google.gemma-4-31b
+      aws_region_name: eu-central-1
+      # A custom model has no entry in LiteLLM's price catalogue, so without
+      # these every request costs 0.00 and the spend column is silently
+      # useless. Figures are Bedrock's published rates for google.gemma-4-31b.
+      input_cost_per_token: 0.00000014
+      output_cost_per_token: 0.00000040
+      # Bedrock turns reasoning on by default for this model and then refuses
+      # function tools unless reasoning_effort is explicitly "none". Verified
+      # against the endpoint directly: tools alone 400, tools plus this 200.
+      reasoning_effort: "none"
+      # LiteLLM has no capability map for this model, so it assumes
+      # reasoning_effort is unsupported and would otherwise strip it.
+      allowed_openai_params: ["reasoning_effort"]
+      # This model accepts no token-limit parameter at all: max_tokens and
+      # max_completion_tokens are both rejected as unsupported. Off-the-shelf
+      # harnesses send one as a matter of course -- Claude Code always does, and
+      # the Anthropic /v1/messages format requires it -- so they are stripped
+      # here rather than every harness needing to know.
+      # thinking is Claude Code's interleaved-thinking request; LiteLLM maps it
+      # onto reasoning_effort, which Bedrock then refuses alongside tools.
+      additional_drop_params: ["max_tokens", "max_completion_tokens", "thinking"]
+
+  # Swapping to self-hosted Gemma on Scaleway is this block and nothing else.
+  # - model_name: gemma
+  #   litellm_params:
+  #     model: openai/gemma-4-31b
+  #     api_base: https://<scaleway-endpoint>/v1
+  #     api_key: os.environ/SCALEWAY_API_KEY
+
+litellm_settings:
+  # Strips the reasoning request from tool-calling calls. See hooks.py: this
+  # model refuses tools and reasoning together on chat completions, and the
+  # combination arrives via translation, too late for model config to prevent.
+  callbacks: ["hooks.proxy_handler_instance"]
+  # On, so a team sending a parameter this model does not support gets their
+  # request served rather than a 400. What it must not strip is the
+  # reasoning_effort above, which is why that one is allow-listed on the model.
+  drop_params: true
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  # Virtual keys, per-key spend and rpm limits all require Postgres. This is
+  # the capability the MLflow gateway does not have in open source: its
+  # api-keys/ and usage/ routes exist in the web UI bundle but 404 on the
+  # server.
+  database_url: os.environ/DATABASE_URL
