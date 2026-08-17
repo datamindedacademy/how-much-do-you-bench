@@ -13,8 +13,21 @@ for name in ("ingest_orders.py", "build_marts.py"):
     s = s.replace("Dataset(", "Asset(")
     p.write_text(s)
 
-# The mart runs when the extract lands, not daily.
+# The mart runs when the extract lands, and still runs daily if it never does.
 p = Path("/app/dags/build_marts.py")
-s = p.read_text().replace('schedule="@daily"', "schedule=ORDERS")
+s = p.read_text()
+s = s.replace(
+    "from airflow.sdk import Asset",
+    "from airflow.sdk import Asset\n"
+    "from airflow.timetables.assets import AssetOrTimeSchedule\n"
+    "from airflow.timetables.trigger import CronTriggerTimetable",
+)
+s = s.replace(
+    'schedule="@daily"',
+    "schedule=AssetOrTimeSchedule(\n"
+    '        timetable=CronTriggerTimetable("@daily", timezone="UTC"),\n'
+    "        assets=ORDERS,\n"
+    "    )",
+)
 p.write_text(s)
 PY

@@ -1,21 +1,26 @@
-The orders mart is regularly built from yesterday's extract.
+Two complaints, same week.
 
-Both DAGs in `/app/dags` run on a daily timer, so `build_marts` fires whether or
-not `ingest_orders` has landed anything that day. When the extract is late, the
-mart is silently stale. Nobody notices until someone reconciles revenue.
+Finance says the revenue figure is sometimes yesterday's. Both DAGs in
+`/app/dags` run on a daily timer, so `build_marts` fires whether or not
+`ingest_orders` has landed anything that day. When the extract is late, the mart
+is silently stale.
 
-Make `build_marts` run when the extract actually lands, rather than on a clock.
-The producer already declares what it writes; the consumer should be scheduled
-on that, so a late extract delays the mart instead of skipping it.
+Platform says the opposite risk: last quarter the ingest was broken for three
+days and nobody noticed, because the mart kept producing a figure. They want the
+mart to keep running on its own schedule too, so a missing extract shows up as a
+number that stops changing rather than a job that stops appearing.
 
-While you are in there: both DAGs use the dataset API that Airflow 3 replaced.
-It still parses, on a deprecation shim that will not survive the next upgrade.
-Move to the current API.
+So `build_marts` must run **as soon as the extract lands**, and **also once a day
+regardless**, whichever comes first.
+
+The scheduler must be able to parse both DAGs, and neither may rely on an API
+that Airflow has already replaced -- the next upgrade removes it.
 
 Constraints:
 
 - Keep both DAG ids (`ingest_orders`, `build_marts`) and both task ids
   (`land_extract`, `total_revenue`).
-- Keep the asset URI `file:///app/warehouse/orders.csv`.
-- No references to the deprecated dataset API may remain in `/app/dags`.
-- Do not schedule `build_marts` on a cron, a timedelta, or `None`.
+- Keep the URI `file:///app/warehouse/orders.csv` as what the ingest produces
+  and the mart consumes.
+- Do not make `build_marts` depend on `ingest_orders` with a task or DAG
+  dependency: the two run on their own, coupled only through the data.

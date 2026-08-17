@@ -45,14 +45,31 @@ if not bag.import_errors:
 
     mart = bag.dags.get("build_marts")
     schedule = getattr(mart, "schedule", None)
-    rendered = repr(schedule)
+
+    # repr() of a timetable is the default object repr, so the asset it carries
+    # is invisible there. Timetables serialise themselves; that is where the
+    # asset condition actually shows up.
+    described = repr(schedule)
+    try:
+        described += " " + repr(schedule.serialize())
+    except Exception:
+        pass
+    for attr in ("assets", "asset_condition", "timetable"):
+        described += f" {attr}={getattr(schedule, attr, None)!r}"
+    rendered = described
     # A timer here is the bug, so a timetable that ignores the asset fails.
-    check("mart scheduled on the asset", URI in rendered, rendered)
+    check("mart runs on the asset", URI in rendered, rendered)
     check(
         "schedule is asset-driven",
         "Asset" in type(schedule).__name__ or "Asset" in rendered,
         f"{type(schedule).__name__}: {rendered}",
     )
+    # The second requirement: a daily run must survive a missing extract, so the
+    # schedule carries a timetable as well as the asset condition.
+    timed = hasattr(schedule, "timetable") or any(
+        marker in rendered for marker in ("Cron", "Delta", "Timetable", "timedelta")
+    )
+    check("mart also runs on a timer", timed, f"{type(schedule).__name__}: {rendered}")
 
 # Airflow 3.0 still ships a shim for airflow.datasets, so the old API parses and
 # merely warns. Leaving it in place is exactly the migration this task is about,
