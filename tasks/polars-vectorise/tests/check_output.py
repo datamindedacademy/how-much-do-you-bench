@@ -11,8 +11,12 @@ here, immediately before the submission, on the same machine, under the same
 load, is what makes the number mean the same thing every time.
 """
 
+import hashlib
+import os
+import shutil
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -32,34 +36,68 @@ def check(label: str, ok: bool, detail: str = "") -> None:
         failures.append(label)
 
 
-def timed(script: str) -> tuple[float, subprocess.CompletedProcess]:
+# Bounded rather than unbounded: a submission that prints in a loop would
+# otherwise be held entirely in the checker's memory, and the tail is all that
+# ever gets reported anyway.
+TAIL = 4000
+TIMEOUT = 600
+
+
+def timed(script: str, env: dict | None = None) -> tuple[float, int, str]:
+    """Elapsed seconds, exit status, and the tail of what it said.
+
+    A timeout is a result, not an exception: letting TimeoutExpired escape ends
+    the checker before it can record which of the two scripts hung.
+    """
     started = time.perf_counter()
-    run = subprocess.run([sys.executable, script], capture_output=True, text=True, timeout=600)
-    return time.perf_counter() - started, run
+    try:
+        run = subprocess.run(
+            [sys.executable, script],
+            capture_output=True,
+            text=True,
+            timeout=TIMEOUT,
+            env={**os.environ, **(env or {})},
+        )
+    except subprocess.TimeoutExpired:
+        return float(TIMEOUT), 124, f"timed out after {TIMEOUT}s"
+    return time.perf_counter() - started, run.returncode, (run.stderr or run.stdout or "")[-TAIL:]
 
 
 out = Path("/app/out/enriched.parquet")
 if out.exists():
     out.unlink()
 
+# The yardstick writes into a directory of the checker's own, which is then
+# removed before the submission runs. It ran first and produced a correct
+# answer: leaving it on disk at a documented path means a transform that copies
+# it is both instant and exactly right.
+scratch = Path(tempfile.mkdtemp(prefix="baseline-", dir="/tmp"))
+baseline_out = scratch / "enriched.parquet"
+
 # The yardstick first, so any warming of the page cache by reading the fixture
 # counts in the submission's favour rather than against it.
-baseline_elapsed, baseline_run = timed(BASELINE)
+baseline_elapsed, baseline_rc, baseline_err = timed(BASELINE, {"BASELINE_OUT": str(baseline_out)})
 print(f"     baseline took {baseline_elapsed:.1f}s")
-check("baseline runs", baseline_run.returncode == 0, (baseline_run.stderr or "")[-400:])
+check("baseline runs", baseline_rc == 0, baseline_err[-400:])
+shutil.rmtree(scratch, ignore_errors=True)
 
-elapsed, run = timed("/app/transform.py")
+elapsed, rc, err = timed("/app/transform.py")
 print(f"     transform took {elapsed:.1f}s")
 
-check("transform succeeds", run.returncode == 0, (run.stderr or run.stdout)[-400:])
-check(
-    "faster than the implementation it replaced",
-    elapsed * SPEEDUP <= baseline_elapsed,
-    f"{elapsed:.1f}s against {baseline_elapsed:.1f}s, "
-    f"which is {baseline_elapsed / max(elapsed, 1e-6):.1f}x rather than {SPEEDUP:.0f}x",
-)
+check("transform succeeds", rc == 0, err[-400:])
 
-if not out.exists():
+# Both gated on the baseline having produced a time worth dividing by: a failed
+# yardstick makes the ratio meaningless, and reporting "0.3x" for it sends the
+# reader after the wrong problem.
+if baseline_rc == 0:
+    check(
+        "faster than the implementation it replaced",
+        elapsed * SPEEDUP <= baseline_elapsed,
+        f"{elapsed:.1f}s against {baseline_elapsed:.1f}s, "
+        f"which is {baseline_elapsed / max(elapsed, 1e-6):.1f}x rather than {SPEEDUP:.0f}x",
+    )
+
+if rc != 0 or not out.exists():
     check("output written", False, "no /app/out/enriched.parquet")
     sys.exit(1)
 
@@ -67,8 +105,12 @@ actual = pl.read_parquet(out)
 orders = pl.read_parquet("/app/data/orders.parquet")
 
 # Both the answer and the yardstick are computed from this file, so a submission
-# that shrank it would make itself fast and correct at the same time.
-check("the extract is intact", orders.height == 8_000_000, f"{orders.height} rows")
+# that shrank it would make itself fast and correct at the same time -- and one
+# that rewrote the values in place would be graded against its own edit while
+# keeping the row count honest. The fingerprint is from image build time.
+digest = hashlib.sha256(Path("/app/data/orders.parquet").read_bytes()).hexdigest()
+want = Path("/opt/orders.sha256").read_text().strip()
+check("the extract is intact", digest == want, f"orders.parquet was modified ({orders.height} rows)")
 
 expected = (
     orders.with_columns(
