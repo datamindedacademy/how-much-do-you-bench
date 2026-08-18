@@ -12,3 +12,16 @@ RUN mkdir -p /app/data /app/out && python /app/generate_data.py
 # rewrote it would be graded against its own edit: a row count catches shrinking
 # it, nothing catches changing the values in place.
 RUN sha256sum /app/data/orders.parquet | cut -d' ' -f1 > /opt/orders.sha256
+
+# A git repo, because a harness that curates its own file list has no other way
+# to find them: aider's context comes from its repo map, the repo map comes from
+# git, and without one it asks the user to paste the code. Cloning the real
+# repository here would hand the agent tests/ and solution/solve.sh, so the
+# fixtures get their own single commit instead -- same discovery, no answers, no
+# history to mine.
+RUN cd /app \
+ && git init -q \
+ && git config user.email fixtures@example.com \
+ && git config user.name fixtures \
+ && git add -A \
+ && git commit -qm "task fixtures"
