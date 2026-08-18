@@ -5,8 +5,10 @@ extract is only going to grow.
 Make it fast. The output must stay byte-for-byte equivalent in meaning: same
 columns, same values, same rows.
 
-It must run in under 25 seconds, reading `/app/data/orders.parquet` and writing
-`/app/out/enriched.parquet` exactly as it does now.
+It must be at least **three times faster** than the version you started from,
+reading `/app/data/orders.parquet` and writing `/app/out/enriched.parquet`
+exactly as it does now. The verifier times both on the same machine, one after
+the other, so the bar does not move with how busy that machine is.
 
 Constraints:
 
