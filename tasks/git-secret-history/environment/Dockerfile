@@ -10,3 +10,13 @@ RUN git config --global user.email "dev@example.com" \
     && git config --global init.defaultBranch main \
     && chmod +x /app/build_repo.sh \
     && /app/build_repo.sh
+
+# The workspace *is* the repository, rather than a directory that happens to
+# contain one. Every other task gives its workspace a git repo so a harness that
+# navigates by repo map -- aider -- can find the files; this task builds a real
+# one already, and starting the agent inside it gives the same property without
+# nesting a second repo around the first.
+#
+# The verifier and the instruction both name /app/repo absolutely, so neither
+# depends on this.
+WORKDIR /app/repo
