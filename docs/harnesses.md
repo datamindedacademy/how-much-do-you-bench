@@ -93,6 +93,14 @@ opencode 8/21, codex 4/21**.
 - With the trim in place it runs (measured: 42 turns, 360k input tokens, every
   request 200), but it is the most fragile harness against this model. Try it;
   do not plan your afternoon around it.
+- The reasoning it is stripped of is probably why. Claude Code plans inside
+  thinking blocks, and a harness told not to think plans in assistant text
+  instead -- which is what the 168-turn run looks like from the outside.
+  [`docs/bifrost.md`](bifrost.md) works through the alternative: Bifrost's
+  Anthropic ingress converts `/v1/messages` to a **Responses** request, and
+  `/v1/responses` is the one surface here that serves tools and reasoning
+  together. `just ops::bifrost` runs one locally beside the LiteLLM gateway.
+  Untested against the deployed model.
 
 ### submission (the `agent/` baseline)
 

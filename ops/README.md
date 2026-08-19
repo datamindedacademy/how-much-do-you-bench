@@ -17,6 +17,7 @@ just ops::worker         # polls SQS, runs rollouts, writes DynamoDB
 just ops::test           # scoring, results table and runner self-checks
 just ops::redrive        # put dead-lettered rollouts back on the queue
 just ops::gateway        # a local LiteLLM instead of the deployed one
+just ops::bifrost        # a local Bifrost beside it, to compare against
 ```
 
 Run `canary` after touching the gateway config, the base image, or a harness

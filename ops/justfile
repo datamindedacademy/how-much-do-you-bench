@@ -110,6 +110,32 @@ gateway:
       || { echo "gateway did not come up:"; docker compose -f ops/gateway/docker-compose.yml logs gateway --tail 20; exit 1; }
     echo "gateway  http://127.0.0.1:4000"
 
+# Bifrost on 8081, beside the LiteLLM gateway rather than instead of it, so the
+# same task can be run through both. Signs for Bedrock with your own AWS
+# credentials, so `aws sso login` first.
+#
+# Why it might route Claude Code better than LiteLLM does -- its Anthropic
+# ingress converts to Responses, which is the one surface of this endpoint that
+# serves tools and reasoning together -- is docs/bifrost.md. What the config says
+# and why is ops/gateway/bifrost/README.md.
+#
+#   GATEWAY_URL=http://host.docker.internal:8081/litellm/v1 \
+#   GATEWAY_API_KEY=sk-bf-local-dev just eval
+#
+# A local Bifrost, to compare against the LiteLLM one.
+bifrost:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    docker compose --env-file .env -f ops/gateway/bifrost/docker-compose.yml up -d
+    echo "waiting for bifrost..."
+    for _ in $(seq 1 60); do
+      curl -sf -o /dev/null http://127.0.0.1:8081/health && break
+      sleep 3
+    done
+    curl -sf -o /dev/null http://127.0.0.1:8081/health \
+      || { echo "bifrost did not come up:"; docker compose -f ops/gateway/bifrost/docker-compose.yml logs bifrost --tail 20; exit 1; }
+    echo "bifrost  http://127.0.0.1:8081   (openai: /litellm/v1, anthropic: /litellm)"
+
 # Build the Svelte dashboard into ops/platform/static.
 build-frontend:
     pnpm -C ops/frontend install

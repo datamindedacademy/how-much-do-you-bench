@@ -1,0 +1,69 @@
+{
+  "$schema": "https://www.getbifrost.ai/schema",
+  "client": {
+    "enable_logging": true,
+    "enforce_auth_on_inference": true,
+    "allowed_headers": [
+      "anthropic-beta",
+      "anthropic-version",
+      "anthropic-dangerous-direct-browser-access",
+      "authorization",
+      "content-type",
+      "user-agent",
+      "x-api-key"
+    ],
+    "compat": {
+      "should_drop_params": true,
+      "should_convert_params": true,
+      "convert_chat_to_responses": false,
+      "convert_text_to_chat": false
+    }
+  },
+  "logs_store": {
+    "enabled": true,
+    "type": "sqlite",
+    "config": {
+      "path": "./logs.db"
+    }
+  },
+  "providers": {
+    "bedrock_mantle": {
+      "keys": [
+        {
+          "name": "mantle-default-chain",
+          "value": "",
+          "models": ["*"],
+          "weight": 1.0,
+          "aliases": {
+            "gemma": {
+              "model_id": "google.gemma-4-31b",
+              "model_name": "google.gemma-4-31b",
+              "description": "Gemma 4 31B on the Bedrock mantle endpoint, eu-central-1"
+            }
+          },
+          "bedrock_mantle_key_config": {
+            "region": "eu-central-1"
+          }
+        }
+      ]
+    }
+  },
+  "governance": {
+    "virtual_keys": [
+      {
+        "id": "vk-bench-local",
+        "name": "bench-local",
+        "value": "env.BIFROST_VIRTUAL_KEY",
+        "is_active": true,
+        "provider_configs": [
+          {
+            "provider": "bedrock_mantle",
+            "allowed_models": ["*"],
+            "key_ids": ["*"],
+            "weight": 1
+          }
+        ]
+      }
+    ]
+  }
+}
