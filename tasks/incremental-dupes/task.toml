@@ -1,5 +1,12 @@
 schema_version = "1.3"
-artifacts = []
+# Copied out of the agent container when the rollout ends, into
+# jobs/<job>/<trial>/artifacts/app/... . This is the state the agent left
+# behind: what it edited, what dbt did with it, and the warehouse it built.
+artifacts = [
+  "/app/pipeline/models",
+  "/app/pipeline/target",
+  "/app/warehouse.duckdb",
+]
 
 [task]
 name = "hackathon/incremental-dupes"

@@ -1,5 +1,10 @@
 schema_version = "1.3"
-artifacts = []
+# The edited script, plus the log tree as the agent's last run left it, which
+# is where the retention bugs show. The verifier reseeds /var/log/app itself.
+artifacts = [
+  { source = "/app", exclude = [".git"] },
+  { source = "/var/log/app" },
+]
 
 [task]
 name = "hackathon/log-rotation"
